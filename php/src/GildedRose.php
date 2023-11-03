@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace GildedRose;
 
+/**
+ * Интерфейс создания базового класса товаров
+ */
 interface ItemInterface
 {
     public function decreaseSellIn(Item $item): void;
@@ -17,6 +20,9 @@ interface ItemInterface
     public function checkMinQuality(int $quality): int;
 }
 
+/**
+ * Интерфейс фабрики для получения соответствующих объектов
+ */
 interface FactoryItemInterface
 {
     public function getItem(Item $item): object;
@@ -28,7 +34,7 @@ interface FactoryItemInterface
  */
 class BaseItem implements ItemInterface
 {
-    public int $indexOfDecreaseQuality = 1;
+    public int $qualityIndex = 1; //Индекс отслеживающий изменения качества товаров
 
     public function __construct(
         public Item $item
@@ -37,11 +43,17 @@ class BaseItem implements ItemInterface
         $this->decreaseQuality($item);
     }
 
+    /**
+     * Метод для проверки последнего дня продаж
+     */
     public function checkLastDateOfSale(int $sellIn): bool
     {
         return $sellIn < 0 ? true : false;
     }
 
+    /**
+     * Метод для проверки максимального качества, не должно превышать 50
+     */
     public function checkMaxQuality(int $quality): int
     {
         if ($quality > 50) {
@@ -51,6 +63,9 @@ class BaseItem implements ItemInterface
         return $quality;
     }
 
+    /**
+     * Метод для проверки минимального качества, не должно быть меньше 0
+     */
     public function checkMinQuality(int $quality): int
     {
         if ($quality < 0) {
@@ -60,17 +75,24 @@ class BaseItem implements ItemInterface
         return $quality;
     }
 
+    /**
+     * Метод уменьшения срока хранения
+     */
     public function decreaseSellIn(Item $item): void
     {
         --$item->sellIn;
     }
 
+    /**
+     * Метод уменьшения качества товара.
+     * При достижении последнего дня продаж товар теряет качество в 2 раза быстрее.
+     */
     public function decreaseQuality(Item $item): void
     {
         if ($this->checkLastDateOfSale($item->sellIn)) {
-            $item->quality = $this->checkMinQuality($item->quality - $this->indexOfDecreaseQuality * 2);
+            $item->quality = $this->checkMinQuality($item->quality - $this->qualityIndex * 2);
         } else {
-            $item->quality = $this->checkMinQuality($item->quality - $this->indexOfDecreaseQuality);
+            $item->quality = $this->checkMinQuality($item->quality - $this->qualityIndex);
         }
     }
 }
@@ -81,7 +103,7 @@ class BaseItem implements ItemInterface
  */
 class Sulfuras
 {
-    private const QUALITY = 80;
+    private const QUALITY = 80; //Для легендарного товара качество являестя постоянно равным 80
 
     public function __construct(
         public Item $item
@@ -98,7 +120,7 @@ class Conjured extends BaseItem
     public function __construct(
         public Item $item
     ) {
-        $this->indexOfDecreaseQuality *= 2;
+        $this->qualityIndex *= 2;
         parent::__construct($item);
     }
 }
@@ -119,9 +141,9 @@ class AgedBrie extends BaseItem
     public function increaseQuality(Item $item): void
     {
         if ($this->checkLastDateOfSale($item->sellIn)) {
-            $item->quality = $this->checkMaxQuality($item->quality + $this->indexOfDecreaseQuality * 2);
+            $item->quality = $this->checkMaxQuality($item->quality + $this->qualityIndex * 2);
         } else {
-            $item->quality = $this->checkMaxQuality($item->quality + $this->indexOfDecreaseQuality);
+            $item->quality = $this->checkMaxQuality($item->quality + $this->qualityIndex);
         }
     }
 }
@@ -145,15 +167,19 @@ class BackstagePasses extends AgedBrie
         if ($this->checkLastDateOfSale($item->sellIn)) {
             $item->quality = 0;
         } elseif ($item->sellIn < 6) {
-            $item->quality = $this->checkMaxQuality($item->quality + $this->indexOfDecreaseQuality * 3);
+            $item->quality = $this->checkMaxQuality($item->quality + $this->qualityIndex * 3);
         } elseif ($item->sellIn < 11) {
-            $item->quality = $this->checkMaxQuality($item->quality + $this->indexOfDecreaseQuality * 2);
+            $item->quality = $this->checkMaxQuality($item->quality + $this->qualityIndex * 2);
         } else {
-            $item->quality = $this->checkMaxQuality($item->quality + $this->indexOfDecreaseQuality);
+            $item->quality = $this->checkMaxQuality($item->quality + $this->qualityIndex);
         }
     }
 }
 
+/**
+ * Реализация интерфейса.
+ * Фабрика для получения объектов товаров.
+ */
 final class FactoryItem implements FactoryItemInterface
 {
     public function __construct(
