@@ -4,110 +4,78 @@ declare(strict_types=1);
 
 namespace GildedRose;
 
-final class GildedRose
+interface ItemInterface
 {
-    /**
-     * @param Item[] $items
-     */
-    public function __construct(
-        private array $items
-    ) {
-    }
+    public function decreaseSellIn(Item $item): void;
 
-    public function updateQuality(): void
-    {
-        foreach ($this->items as $item) {
-            $item = new EntityFactory($item);
-        }
-    }
+    public function decreaseQuality(Item $item): void;
+
+    public function checkLastDateOfSale(int $sellIn): bool;
+
+    public function checkMaxQuality(int $quality): int;
+
+    public function checkMinQuality(int $quality): int;
 }
 
-/**
- * Класс управляющий созданием объектов в зависимости от наименования товара.
- */
-final class EntityFactory
+interface FactoryItemInterface
 {
-    public function __construct(
-        public Item $item
-    ) {
-        $item = match (true) {
-            str_starts_with($item->name, 'Sulfuras') => $this->getSulfuras($item),
-            str_starts_with($item->name, 'Conjured') => $this->getConjured($item),
-            str_starts_with($item->name, 'Aged Brie') => $this->getAgedBrie($item),
-            str_starts_with($item->name, 'Backstage passes') => $this->getBackstagePasses($item),
-            default => $this->getBaseItem($item)
-        };
-    }
-
-    private function getSulfuras(Item $item): object
-    {
-        return new Sulfuras($item);
-    }
-
-    private function getConjured(Item $item): object
-    {
-        return new Conjured($item);
-    }
-
-    private function getAgedBrie(Item $item): object
-    {
-        return new AgedBrie($item);
-    }
-
-    private function getBackstagePasses(Item $item): object
-    {
-        return new BackstagePasses($item);
-    }
-
-    private function getBaseItem(Item $item): object
-    {
-        return new BaseItem($item);
-    }
+    public function getItem(Item $item): object;
 }
+
 
 /**
  * Базовый класс для обычных товаров, определяющий стандартные свойства и методы.
  */
-class BaseItem
+class BaseItem implements ItemInterface
 {
-    public int $index = 1;
+    public int $indexOfDecreaseQuality = 1;
 
     public function __construct(
         public Item $item
     ) {
-        $this->decreaseQuality($item);
         $this->decreaseSellIn($item);
+        $this->decreaseQuality($item);
     }
 
-    protected function increaseQuality(Item $item): void
+    public function checkLastDateOfSale(int $sellIn): bool
     {
-        if ($item->quality < 50) {
-            $item->quality = $item->quality + $this->index;
+        return $sellIn < 0 ? true : false;
+    }
+
+    public function checkMaxQuality(int $quality): int
+    {
+        if ($quality > 50) {
+            $quality = 50;
+            return $quality;
         }
+        return $quality;
     }
 
-    protected function decreaseQuality(Item $item): void
+    public function checkMinQuality(int $quality): int
     {
-        if ($item->quality > 0) {
-            $item->quality = $item->quality - $this->index;
+        if ($quality < 0) {
+            $quality = 0;
+            return $quality;
         }
+        return $quality;
     }
 
-    protected function decreaseSellIn(Item $item): void
+    public function decreaseSellIn(Item $item): void
     {
-        if ($item->sellIn > 0) {
-            $item->sellIn = $item->sellIn - $this->index;
+        --$item->sellIn;
+    }
+
+    public function decreaseQuality(Item $item): void
+    {
+        if ($this->checkLastDateOfSale($item->sellIn)) {
+            $item->quality = $this->checkMinQuality($item->quality - $this->indexOfDecreaseQuality * 2);
         } else {
-            $item->sellIn = $item->sellIn - $this->index;
-            $this->decreaseQuality($item);
+            $item->quality = $this->checkMinQuality($item->quality - $this->indexOfDecreaseQuality);
         }
     }
 }
 
 /**
- * Данный класс не требует наследования от базового класса итемов по условиям задачи.
- * т.к. качество качество всегда является постоянным значением = 80, независимо от переданного значения в конструктор,
- * срок хранения остается равным переданному значению в конструктор.
  * «Sulfuras» является легендарным товаром, поэтому у него нет срока хранения и не подвержен ухудшению качества;
  * легендарный товар «Sulfuras» имеет качество 80 и оно никогда не меняется.
  */
@@ -123,7 +91,6 @@ class Sulfuras
 }
 
 /**
- * Наследуем свойства и методы обычных товаров, уменьшая качество в два раза, в соответствии с условиями задачи.
  * «Conjured» товары теряют качество в два раза быстрее, чем обычные товары.
  */
 class Conjured extends BaseItem
@@ -131,16 +98,12 @@ class Conjured extends BaseItem
     public function __construct(
         public Item $item
     ) {
-        $this->decreaseSellIn($item);
-        $this->decreaseQuality($item);
-        $this->decreaseQuality($item);
+        $this->indexOfDecreaseQuality *= 2;
+        parent::__construct($item);
     }
 }
 
-
 /**
- * Наследуем свойства и методы обычных товаров. Переопределяем функцию increaseQuality и decreaseSellIn.
- * т.к. необходимы дополнительные условия для изменения качества.
  * Определение свойств качества аналогично с классом BackstagePasses.
  * Для товара «Aged Brie» качество увеличивается пропорционально возрасту;
  */
@@ -153,58 +116,78 @@ class AgedBrie extends BaseItem
         $this->increaseQuality($item);
     }
 
-    protected function increaseQuality(Item $item): void
+    public function increaseQuality(Item $item): void
     {
-        if ($item->sellIn >= 0 && $item->quality < 50) {
-            $item->quality = $item->quality + $this->index;
+        if ($this->checkLastDateOfSale($item->sellIn)) {
+            $item->quality = $this->checkMaxQuality($item->quality + $this->indexOfDecreaseQuality * 2);
+        } else {
+            $item->quality = $this->checkMaxQuality($item->quality + $this->indexOfDecreaseQuality);
         }
-        if ($item->sellIn < 0 && $item->quality < 50) {
-            $item->quality = $item->quality + $this->index * 2 > 50 ? 50 : $item->quality + $this->index * 2;
-        }
-    }
-
-    protected function decreaseSellIn(Item $item): void
-    {
-        $item->sellIn = $item->sellIn - 1;
     }
 }
 
-
 /**
- * Наследуем свойства и методы обычных товаров, переопределяем функции increaseQuality и decreaseSellIn,
- * т.к. необходимы дополнительные условия для изменения качества.
  * Качество «Backstage passes» также, как и «Aged Brie», увеличивается по мере приближения к сроку хранения.
  * Качество увеличивается на 2, когда до истечения срока хранения 10 или менее дней и на 3,
  * если до истечения 5 или менее дней. При этом качество падает до 0 после даты проведения концерта.
  */
-class BackstagePasses extends BaseItem
+class BackstagePasses extends AgedBrie
 {
     public function __construct(
         public Item $item
     ) {
-        $this->increaseQuality($item);
         $this->decreaseSellIn($item);
+        $this->increaseQuality($item);
     }
 
-    protected function increaseQuality(Item $item): void
+    public function increaseQuality(Item $item): void
     {
-        if ($item->sellIn < 6) {
-            $item->quality = $item->quality + $this->index * 3 > 50 ? 50 : $item->quality + $this->index * 3;
-        } elseif ($item->sellIn < 11) {
-            $item->quality = $item->quality + $this->index * 2 > 50 ? 50 : $item->quality + $this->index * 2;
-        } else {
-            $item->quality = $item->quality + $this->index >= 50 ? 50 : $item->quality + $this->index;
-        }
-    }
-
-    protected function decreaseSellIn(Item $item): void
-    {
-        if ($item->sellIn <= 0) {
+        if ($this->checkLastDateOfSale($item->sellIn)) {
             $item->quality = 0;
-            $item->sellIn = $item->sellIn - $this->index;
+        } elseif ($item->sellIn < 6) {
+            $item->quality = $this->checkMaxQuality($item->quality + $this->indexOfDecreaseQuality * 3);
+        } elseif ($item->sellIn < 11) {
+            $item->quality = $this->checkMaxQuality($item->quality + $this->indexOfDecreaseQuality * 2);
+        } else {
+            $item->quality = $this->checkMaxQuality($item->quality + $this->indexOfDecreaseQuality);
         }
-        if ($item->sellIn > 0) {
-            $item->sellIn = $item->sellIn - $this->index;
+    }
+}
+
+final class FactoryItem implements FactoryItemInterface
+{
+    public function __construct(
+        public Item $item
+    ) {
+        $this->getItem($item);
+    }
+
+    public function getItem(Item $item): object
+    {
+        return match (true) {
+            str_starts_with($item->name, 'Sulfuras') => new Sulfuras($item),
+            str_starts_with($item->name, 'Conjured') => new Conjured($item),
+            str_starts_with($item->name, 'Aged Brie') => new AgedBrie($item),
+            str_starts_with($item->name, 'Backstage passes') => new BackstagePasses($item),
+            default => new BaseItem($item)
+        };
+    }
+}
+
+final class GildedRose
+{
+    /**
+     * @param Item[] $items
+     */
+    public function __construct(
+        private array $items
+    ) {
+    }
+
+    public function updateQuality(): void
+    {
+        foreach ($this->items as $item) {
+            $item = new FactoryItem($item);
         }
     }
 }
