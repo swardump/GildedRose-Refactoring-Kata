@@ -48,7 +48,7 @@ class BaseItem implements ItemInterface
      */
     public function checkLastDateOfSale(int $sellIn): bool
     {
-        return $sellIn < 0 ? true : false;
+        return $sellIn < 0 ?: false;
     }
 
     /**
@@ -91,9 +91,10 @@ class BaseItem implements ItemInterface
     {
         if ($this->checkLastDateOfSale($item->sellIn)) {
             $item->quality = $this->checkMinQuality($item->quality - $this->qualityIndex * 2);
-        } else {
-            $item->quality = $this->checkMinQuality($item->quality - $this->qualityIndex);
+            return;
         }
+
+        $item->quality = $this->checkMinQuality($item->quality - $this->qualityIndex);
     }
 }
 
@@ -101,7 +102,7 @@ class BaseItem implements ItemInterface
  * «Sulfuras» является легендарным товаром, поэтому у него нет срока хранения и не подвержен ухудшению качества;
  * легендарный товар «Sulfuras» имеет качество 80 и оно никогда не меняется.
  */
-class Sulfuras
+class Sulfuras extends BaseItem
 {
     private const QUALITY = 80; //Для легендарного товара качество являестя постоянно равным 80
 
@@ -142,9 +143,10 @@ class AgedBrie extends BaseItem
     {
         if ($this->checkLastDateOfSale($item->sellIn)) {
             $item->quality = $this->checkMaxQuality($item->quality + $this->qualityIndex * 2);
-        } else {
-            $item->quality = $this->checkMaxQuality($item->quality + $this->qualityIndex);
+            return;
         }
+
+        $item->quality = $this->checkMaxQuality($item->quality + $this->qualityIndex);
     }
 }
 
@@ -153,7 +155,7 @@ class AgedBrie extends BaseItem
  * Качество увеличивается на 2, когда до истечения срока хранения 10 или менее дней и на 3,
  * если до истечения 5 или менее дней. При этом качество падает до 0 после даты проведения концерта.
  */
-class BackstagePasses extends AgedBrie
+class BackstagePasses extends BaseItem
 {
     public function __construct(
         public Item $item
@@ -166,13 +168,18 @@ class BackstagePasses extends AgedBrie
     {
         if ($this->checkLastDateOfSale($item->sellIn)) {
             $item->quality = 0;
-        } elseif ($item->sellIn < 6) {
-            $item->quality = $this->checkMaxQuality($item->quality + $this->qualityIndex * 3);
-        } elseif ($item->sellIn < 11) {
-            $item->quality = $this->checkMaxQuality($item->quality + $this->qualityIndex * 2);
-        } else {
-            $item->quality = $this->checkMaxQuality($item->quality + $this->qualityIndex);
+            return;
         }
+        if ($item->sellIn < 6) {
+            $item->quality = $this->checkMaxQuality($item->quality + $this->qualityIndex * 3);
+            return;
+        }
+        if ($item->sellIn < 11) {
+            $item->quality = $this->checkMaxQuality($item->quality + $this->qualityIndex * 2);
+            return;
+        }
+
+        $item->quality = $this->checkMaxQuality($item->quality + $this->qualityIndex);
     }
 }
 
